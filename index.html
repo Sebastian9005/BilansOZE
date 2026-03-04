@@ -1,0 +1,428 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Calculator, Building2, Layers, TrendingUp, Zap, 
+  Activity, Wind, Ban, PiggyBank, Check, Minus, Plus, 
+  ChevronRight, Info, CheckCircle, Factory, Flame, Leaf 
+} from 'lucide-react';
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('input');
+  const [pum, setPum] = useState(1000);
+  const [ventilation, setVentilation] = useState('gravity');
+  const [heatingType, setHeatingType] = useState('radiators');
+  const [heatPumpUnitPower, setHeatPumpUnitPower] = useState(30);
+  const [greenPremiumPerM2, setGreenPremiumPerM2] = useState(150);
+  const [comparisonBase, setComparisonBase] = useState('radiators');
+
+  const powerSteps = [16, 20, 25, 30, 50, 60, 80];
+  const pricePumM2 = 14000;
+
+  const [selectedCostsHP, setSelectedCostsHP] = useState({ units: true, cascade_logic: true, buffers: true, electric_upgrade: true, installation: true });
+  const [selectedCostsGas, setSelectedCostsGas] = useState({ boilers: true, chimney: true, gas_connection: true, detection: true, installation: true });
+  const [selectedCostsDistrict, setSelectedCostsDistrict] = useState({ exchanger: true, connection: true, automation: true, room_adaptation: true });
+
+  const qPerM2 = ventilation === 'gravity' ? 40 : 30;
+  const totalHeatLoadKW = (pum * qPerM2) / 1000;
+
+  const epBase = useMemo(() => {
+    let ep = { gas: 82, hp: 58, district: 68 };
+    if (ventilation === 'mechanical') {
+      ep = { gas: 72, hp: 45, district: 58 };
+    }
+    if (heatingType === 'underfloor') {
+      ep.hp -= 8;
+      ep.gas -= 4;
+      ep.district -= 4;
+    }
+    return ep;
+  }, [ventilation, heatingType]);
+
+  const numberOfPumps = Math.ceil(totalHeatLoadKW / heatPumpUnitPower);
+  const installedPower = numberOfPumps * heatPumpUnitPower;
+  const redundancy = installedPower - totalHeatLoadKW;
+
+  const costItemsHP = [
+    { id: 'units', label: 'Jednostki Pomp Ciepła', pricePerKw: 2000 },
+    { id: 'cascade_logic', label: 'Automatyka kaskady', pricePerKw: 350 },
+    { id: 'buffers', label: 'Zasobniki buforowe/CWU', pricePerKw: 600 },
+    { id: 'electric_upgrade', label: 'Przyłącze elektryczne', pricePerKw: 250 },
+    { id: 'installation', label: 'Montaż i rozruch', pricePerKw: 500 },
+  ];
+
+  const costItemsGas = [
+    { id: 'boilers', label: 'Kotły gazowe (Kaskada)', pricePerKw: 800 },
+    { id: 'chimney', label: 'System spalinowy', pricePerKw: 250 },
+    { id: 'gas_connection', label: 'Przyłącze gazowe', pricePerKw: 150 },
+    { id: 'detection', label: 'System detekcji i PPOŻ', pricePerKw: 100 },
+    { id: 'installation', label: 'Montaż i kominiarz', pricePerKw: 300 },
+  ];
+
+  const costItemsDistrict = [
+    { id: 'exchanger', label: 'Węzeł cieplny', pricePerKw: 700 },
+    { id: 'connection', label: 'Przyłącze cieplne', pricePerKw: 450 },
+    { id: 'automation', label: 'Automatyka i liczniki', pricePerKw: 200 },
+    { id: 'room_adaptation', label: 'Adaptacja pomieszczenia', pricePerKw: 150 },
+  ];
+
+  const totalCostHP = costItemsHP.filter(i => selectedCostsHP[i.id]).reduce((a, b) => a + (b.pricePerKw * totalHeatLoadKW), 0);
+  const totalCostGas = costItemsGas.filter(i => selectedCostsGas[i.id]).reduce((a, b) => a + (b.pricePerKw * totalHeatLoadKW), 0);
+  const totalCostDistrict = costItemsDistrict.filter(i => selectedCostsDistrict[i.id]).reduce((a, b) => a + (b.pricePerKw * totalHeatLoadKW), 0);
+
+  const constructionSavings = pum * 80;
+  const greenMarketingProfit = pum * greenPremiumPerM2;
+  const investmentDifference = totalCostHP - totalCostGas;
+  const totalBenefitHP = constructionSavings + greenMarketingProfit - investmentDifference;
+
+  const priceKwhG11 = 1.15;
+  const ventMultiplier = ventilation === 'mechanical' ? 0.7 : 1.0;
+  const euYearlyPerM2 = 50 * ventMultiplier;
+
+  const heatCostHP_Rad = (euYearlyPerM2 / 3.2) * priceKwhG11;
+  const heatCostHP_Floor = (euYearlyPerM2 / 4.5) * priceKwhG11;
+  const heatCostDistrictPerM2 = 48.00 * ventMultiplier;
+  const heatCostGasPerM2 = 42.00 * ventMultiplier;
+
+  const avgCreditWarsaw = 750000;
+  const monthlySavingEcoCredit = (avgCreditWarsaw * 0.005) / 12;
+
+  const activeHPCostMonthly = comparisonBase === 'underfloor' ? (heatCostHP_Floor * 50 / 12) : (heatCostHP_Rad * 50 / 12);
+
+  const maxSavingPct = useMemo(() => {
+    const baseline = Math.max(heatCostDistrictPerM2, heatCostGasPerM2) * 50 / 12;
+    const bestHP = heatCostHP_Floor * 50 / 12;
+    return ((baseline - bestHP) / baseline * 100).toFixed(0);
+  }, [heatCostDistrictPerM2, heatCostGasPerM2, heatCostHP_Floor]);
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-12 font-sans">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-[900] text-slate-900 tracking-tight flex items-center gap-2">
+              <Calculator className="text-blue-600" size={28} /> BilansOZE
+            </h1>
+            <p className="text-slate-500 text-sm font-medium italic">Kalkulator korzyści z pompami ciepła Panasonic</p>
+          </div>
+          <div className="bg-white px-4 py-3 rounded-xl shadow-sm border border-slate-200">
+            <img src="https://globenergia.pl/wp-content/uploads/2021/08/partner-logo-panasonic-color.svg" alt="Panasonic" className="h-7 w-auto" />
+          </div>
+        </header>
+
+        <nav className="flex bg-white p-1 rounded-2xl shadow-sm border border-slate-200 mb-8 overflow-x-auto scrollbar-hide">
+          <button onClick={() => setActiveTab('input')} className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'input' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <Building2 size={18} /> Dane budynku
+          </button>
+          <button onClick={() => setActiveTab('cascade')} className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'cascade' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <Layers size={18} /> Dobór urządzeń
+          </button>
+          <button onClick={() => setActiveTab('costs')} className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'costs' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <TrendingUp size={18} /> Kosztorys i zysk
+          </button>
+        </nav>
+
+        <main className="animate-fade-in">
+          {activeTab === 'input' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Powierzchnia PUM (m²)</label>
+                      <div className="relative">
+                        <input type="number" value={pum} onChange={(e) => setPum(Number(e.target.value))} className="w-full pl-4 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 outline-none text-2xl font-black transition-all" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm uppercase">m²</span>
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Rodzaj Wentylacji</label>
+                        <div className="flex p-1 bg-slate-100 rounded-2xl">
+                          <button onClick={() => setVentilation('gravity')} className={`flex-1 py-3.5 rounded-xl font-bold text-xs transition-all ${ventilation === 'gravity' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Grawitacyjna</button>
+                          <button onClick={() => setVentilation('mechanical')} className={`flex-1 py-3.5 rounded-xl font-bold text-xs transition-all ${ventilation === 'mechanical' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Rekuperacja</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Odbiornik ciepła</label>
+                        <div className="flex p-1 bg-slate-100 rounded-2xl">
+                          <button onClick={() => setHeatingType('radiators')} className={`flex-1 py-3.5 rounded-xl font-bold text-xs transition-all ${heatingType === 'radiators' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Grzejniki</button>
+                          <button onClick={() => setHeatingType('underfloor')} className={`flex-1 py-3.5 rounded-xl font-bold text-xs transition-all ${heatingType === 'underfloor' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Podłogówka</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+                    <p className="text-[10px] text-slate-500 uppercase font-black mb-1 italic">Założenia WT2021:</p>
+                    <p className="text-[10px] text-slate-400">Ściany zewnętrzne: U=0.20 | Dach/Stropodach: U=0.15 | Okna: U=0.9 | Podłoga na gruncie: U=0.30 W/(m²K)</p>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-10 text-center">Wpływ na wskaźnik energii pierwotnej EP (kWh/m²a)</h3>
+                  <div className="flex flex-col space-y-8">
+                    {[
+                      { label: 'Pompa Ciepła', val: epBase.hp, color: 'bg-green-500', text: 'text-green-600' },
+                      { label: 'Sieć Miejska', val: epBase.district, color: 'bg-blue-500', text: 'text-blue-600' },
+                      { label: 'Gaz', val: epBase.gas, color: 'bg-orange-500', text: 'text-orange-600' }
+                    ].sort((a,b) => a.val - b.val).map((item, i) => (
+                      <div key={i} className="relative">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className={`text-xs font-black uppercase tracking-widest ${item.text}`}>{item.label}</span>
+                          <span className="text-xl font-black text-slate-800">{item.val} <span className="text-[10px] text-slate-400">kWh/m²a</span></span>
+                        </div>
+                        <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${item.color} transition-all duration-1000 shadow-inner`} style={{width: `${(item.val/90)*100}%`}}></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-8 rounded-[32px] text-white flex flex-col justify-center items-center text-center shadow-lg shadow-blue-200">
+                <div className="bg-white/20 p-4 rounded-full mb-4"><Zap size={32} /></div>
+                <div className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">Moc grzewcza obiektu</div>
+                <div className="text-6xl font-black mb-2 tracking-tighter">{totalHeatLoadKW.toFixed(0)}<span className="text-xl font-normal opacity-50 ml-1">kW</span></div>
+                <p className="text-xs font-medium opacity-80 leading-relaxed max-w-[180px]">Zapotrzebowanie jednostkowe: {qPerM2} W/m²</p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'cascade' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-center">
+                  <h3 className="text-lg font-bold mb-8 text-slate-800 flex items-center gap-2 uppercase tracking-tight">
+                    <Layers className="text-blue-600" /> System kaskadowy Panasonic
+                  </h3>
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-end mb-4">
+                        <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Moc jednostki: {heatPumpUnitPower} kW</span>
+                        <span className="text-xl font-black text-blue-600 tracking-tighter">{numberOfPumps} jednostek</span>
+                      </div>
+                      <div className="relative pt-6">
+                        <input type="range" min="0" max={powerSteps.length - 1} step="1" value={powerSteps.indexOf(heatPumpUnitPower)} onChange={(e) => setHeatPumpUnitPower(powerSteps[e.target.value])} className="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                        <div className="flex justify-between mt-4 px-1">
+                          {powerSteps.map((step, i) => (
+                            <span key={i} className={`text-[10px] font-bold ${heatPumpUnitPower === step ? 'text-blue-600 scale-125' : 'text-slate-300'}`}>{step}k</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100">
+                    <h4 className="text-xs font-black text-blue-700 uppercase mb-2">Dlaczego kaskada?</h4>
+                    <ul className="text-xs text-blue-800 space-y-3 font-medium">
+                      <li className="flex gap-2">
+                        <Check className="text-blue-600 shrink-0" size={14}/> 
+                        <span><strong>Lepsza modulacja:</strong> System pracuje z precyzyjną mocą, dostosowując się do aktualnych potrzeb, co drastycznie obniża zużycie prądu i wydłuża żywotność sprężarek.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <Check className="text-blue-600 shrink-0" size={14}/> 
+                        <span><strong>Bezpieczeństwo (Redundancja):</strong> W przypadku awarii jednej jednostki, pozostałe automatycznie przejmują jej funkcję, zapewniając nieprzerwane ogrzewanie budynku.</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900 p-8 rounded-3xl shadow-xl text-white">
+                  <div className="flex items-center gap-2 mb-8 text-blue-400">
+                    <Activity size={20} />
+                    <span className="text-xs font-black uppercase tracking-widest">Bilans techniczny systemu</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex flex-col p-6 bg-blue-600 rounded-2xl shadow-lg border border-blue-400/30 text-center">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80 text-blue-100 text-center">Liczba urządzeń Panasonic</span>
+                      <span className="text-5xl font-black tracking-tighter">{numberOfPumps} <span className="text-lg font-medium opacity-60">szt.</span></span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-5 bg-white/5 rounded-2xl border border-white/10">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Moc całkowita</span>
+                        <span className="text-2xl font-black text-blue-400">{installedPower} kW</span>
+                      </div>
+                      <div className="p-5 bg-green-500/10 rounded-2xl border border-green-500/20">
+                        <span className="text-[10px] font-bold text-green-100/50 uppercase block mb-1">Nadmiarowość</span>
+                        <span className="text-2xl font-black text-green-400">+{redundancy.toFixed(1)} kW</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[
+                  { icon: <Wind />, title: 'Czyste powietrze', desc: 'Brak emisji spalin na terenie osiedla poprawia jakość życia i zdrowie mieszkańców. To kluczowy argument sprzedażowy w miastach dbających o jakość powietrza.' },
+                  { icon: <Ban />, title: 'Brak kominów', desc: 'Eliminacja szachtów i systemów spalinowych upraszcza konstrukcję dachu oraz elewacji. Oznacza to mniej punktów potencjalnych nieszczelności i niższy koszt budowy.' },
+                  { icon: <TrendingUp />, title: 'Niskie koszty', desc: 'Wysoka sprawność SCOP przekłada się na najniższe możliwe rachunki dla lokatorów. Budynek staje się niezależny od rosnących cen paliw kopalnych i opłat emisyjnych.' },
+                  { icon: <PiggyBank />, title: 'EKO-kredyt', desc: 'Niski wskaźnik EP otwiera drogę do preferencyjnego finansowania dla klientów końcowych. Tańszy kredyt realnie zwiększa zdolność zakupową nabywców Twoich mieszkań.' }
+                ].map((arg, i) => (
+                  <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4">{arg.icon}</div>
+                    <h4 className="font-bold text-sm mb-2 uppercase tracking-tight text-slate-800">{arg.title}</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">{arg.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'costs' && (
+            <div className="space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  { title: 'Pompa Ciepła', icon: <Zap size={32}/>, color: 'green', items: costItemsHP, selected: selectedCostsHP, setter: setSelectedCostsHP, total: totalCostHP },
+                  { title: 'Węzeł Miejski', icon: <Factory size={32}/>, color: 'blue', items: costItemsDistrict, selected: selectedCostsDistrict, setter: setSelectedCostsDistrict, total: totalCostDistrict },
+                  { title: 'Kocioł Gazowy', icon: <Flame size={32}/>, color: 'orange', items: costItemsGas, selected: selectedCostsGas, setter: setSelectedCostsGas, total: totalCostGas }
+                ].map((tech, idx) => (
+                  <div key={idx} className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                    <div className={`p-10 bg-${tech.color}-50 border-b border-${tech.color}-100 flex justify-between items-center`}>
+                      <span className={`font-black text-${tech.color}-700 uppercase text-2xl tracking-tight`}>{tech.title}</span>
+                      <div className={`text-${tech.color}-600`}>{tech.icon}</div>
+                    </div>
+                    <div className="p-3 flex-1">
+                      {tech.items.map((item, i) => (
+                        <div key={item.id} onClick={() => tech.setter(v => ({...v, [item.id]: !v[item.id]}))} className={`p-3 flex justify-between items-start cursor-pointer transition-all hover:bg-slate-50 ${i !== tech.items.length - 1 ? 'border-b border-slate-100' : ''} ${tech.selected[item.id] ? 'opacity-100' : 'opacity-20 scale-95 grayscale'}`}>
+                          <div className="max-w-[70%]">
+                            <div className="text-[11px] font-bold text-slate-800 leading-tight">{item.label}</div>
+                          </div>
+                          <div className="text-[11px] font-black text-slate-900">{(item.pricePerKw * totalHeatLoadKW).toLocaleString()} zł</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={`p-6 bg-${tech.color}-600 text-white`}>
+                      <div className="text-2xl font-[900] tracking-tight text-center">{tech.total.toLocaleString()} zł</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-slate-900 text-white p-8 md:p-12 rounded-[48px] shadow-2xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-12">
+                    <div className="p-2.5 bg-blue-500 rounded-xl shadow-lg shadow-blue-500/20"><TrendingUp size={24} /></div>
+                    <h3 className="text-2xl font-[900] italic uppercase tracking-tight">Analiza wartości dodanej dla Inwestycji</h3>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+                    <div className="space-y-6">
+                      <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Optymalizacja EP budynku</div>
+                          <div className="text-2xl font-black text-green-400">+{constructionSavings.toLocaleString()} zł</div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed italic text-justify">Dzięki niskiej emisyjności pomp ciepła, spełnienie rygorystycznych norm WT2021 następuje bez konieczności kosztownego zwiększania grubości izolacji przegród czy dokładania rozbudowanej instalacji fotowoltaicznej. Pozwala to na realne oszczędności materiałowe przy zachowaniu najwyższych standardów energetycznych.</p>
+                      </div>
+
+                      <div className="bg-white/5 p-8 rounded-3xl border border-white/10">
+                        <div className="flex justify-between items-start mb-6">
+                          <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">Marża EKO (Premia rynkowa)</div>
+                          <div className="text-2xl font-black text-green-400">+{greenMarketingProfit.toLocaleString()} zł</div>
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-4 bg-black/40 p-4 rounded-2xl">
+                            <button onClick={() => setGreenPremiumPerM2(Math.max(0, greenPremiumPerM2 - 50))} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all"><Minus size={16}/></button>
+                            <input type="range" min="0" max="500" step="50" value={greenPremiumPerM2} onChange={(e) => setGreenPremiumPerM2(Number(e.target.value))} className="w-full" />
+                            <button onClick={() => setGreenPremiumPerM2(Math.min(500, greenPremiumPerM2 + 50))} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-all"><Plus size={16}/></button>
+                          </div>
+                          <p className="text-[10px] text-center text-slate-500 italic uppercase">Premia deweloperska: {greenPremiumPerM2} zł/m² PUM (przyjmując cenę sprzedaży {pricePumM2} zł/m²)</p>
+                        </div>
+                        <div className="mt-6 pt-6 border-t border-white/5 text-center">
+                          <div className="inline-flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-full border border-green-500/30 mb-2">
+                             <Leaf size={14} className="fill-current" />
+                             <span className="text-[11px] font-black uppercase tracking-widest">Atut dla klienta: Zielony EKO-Kredyt</span>
+                          </div>
+                          <span className="text-[13px] text-white font-bold block">Rata kredytu niższa o ~{monthlySavingEcoCredit.toFixed(0)} zł/mc</span>
+                          <p className="text-[9px] text-slate-500 mt-2 italic">(Przyjmując średnią kwotę kredytu w Warszawie w 2025 r. na poziomie 750 tys. zł oraz obniżkę marży o 0,5% dla budynków energooszczędnych)</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-10 rounded-[40px] flex flex-col justify-center items-center text-center shadow-xl border border-white/10">
+                      <div className="text-[11px] font-black uppercase tracking-[0.4em] mb-4 opacity-70 text-center">Bilans korzyści Dewelopera</div>
+                      <div className="text-7xl font-[900] tracking-tighter mb-4">
+                        {totalBenefitHP.toLocaleString()} <span className="text-xl font-normal opacity-50">zł</span>
+                      </div>
+                      <div className="text-[10px] font-bold text-blue-100/60 uppercase tracking-widest leading-loose text-center">
+                        Zysk z optymalizacji: +{constructionSavings.toLocaleString()} zł<br/>
+                        Premia Marża EKO: +{greenMarketingProfit.toLocaleString()} zł<br/>
+                        Różnica inwestycji (vs Gaz): -{investmentDifference.toLocaleString()} zł
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-16 pt-12 border-t border-white/10">
+                    <h4 className="text-xl font-black uppercase tracking-tight mb-2 text-white text-center italic">Przyszłość mieszkańca: Twoja przewaga rynkowa</h4>
+                    <p className="text-[10px] text-slate-500 uppercase text-center font-bold tracking-widest mb-8 italic">Symulacja średniomiesięcznych rachunków dla mieszkania o wielkości 50m²</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                      <div className="bg-white/5 p-8 rounded-[32px] border border-white/5 flex flex-col items-center">
+                        <div className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest text-center">Pompa Ciepła (Baza)</div>
+                        <div className="space-y-4 w-full">
+                          <div onClick={() => setComparisonBase('radiators')} className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${comparisonBase === 'radiators' ? 'bg-blue-600 border-blue-400 ring-2 ring-white/20' : 'bg-white/5 border-white/10'}`}>
+                            <div className="text-[9px] uppercase font-black text-blue-300">Grzejniki</div>
+                            <div className="text-2xl font-black text-white">{(heatCostHP_Rad * 50 / 12).toFixed(0)} zł <span className="text-xs opacity-50">/ mc</span></div>
+                            <div className="text-[8px] text-blue-300/60 font-bold mt-1 uppercase italic">Rok: {(heatCostHP_Rad * 50).toFixed(0)} zł</div>
+                          </div>
+                          <div onClick={() => setComparisonBase('underfloor')} className={`p-4 rounded-2xl border transition-all cursor-pointer text-center ${comparisonBase === 'underfloor' ? 'bg-green-600 border-green-400 ring-2 ring-white/20' : 'bg-white/5 border-white/10'}`}>
+                            <div className="text-[9px] uppercase font-black text-green-300">Podłogówka</div>
+                            <div className="text-2xl font-black text-white">{(heatCostHP_Floor * 50 / 12).toFixed(0)} zł <span className="text-xs opacity-50">/ mc</span></div>
+                            <div className="text-[8px] text-green-300/60 font-bold mt-1 uppercase italic">Rok: {(heatCostHP_Floor * 50).toFixed(0)} zł</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {[
+                        { label: 'Sieć Miejska', cost: (heatCostDistrictPerM2 * 50 / 12), color: 'text-blue-400', yearly: (heatCostDistrictPerM2 * 50) },
+                        { label: 'Kocioł Gazowy', cost: (heatCostGasPerM2 * 50 / 12), color: 'text-orange-400', yearly: (heatCostGasPerM2 * 50) }
+                      ].map((item, i) => {
+                        const savingsPct = ((item.cost - activeHPCostMonthly) / item.cost * 100).toFixed(0);
+                        return (
+                          <div key={i} className="bg-white/5 p-8 rounded-[32px] border border-white/5 text-center flex flex-col justify-center items-center">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-4 tracking-widest">{item.label}</div>
+                            <div className={`text-4xl font-black ${item.color} tracking-tight`}>{item.cost.toFixed(0)} zł <span className="text-sm opacity-50">/ mc</span></div>
+                            <div className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-wider italic">Łącznie rocznie: {item.yearly.toLocaleString()} zł</div>
+                            <div className="text-[10px] text-slate-400 font-medium mt-6 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                              PC tańsza o <span className="text-white font-black">{savingsPct}%</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="bg-green-600/20 border border-green-500/30 p-8 rounded-[32px] text-center mb-12">
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        <CheckCircle className="text-green-400" size={24} />
+                        <span className="text-2xl font-black text-green-400 tracking-tight uppercase">Maksymalna korzyść OZE</span>
+                      </div>
+                      <p className="text-lg text-white font-medium leading-relaxed">
+                        <span className="text-3xl font-black text-green-400 mr-2">DO {maxSavingPct}%</span> 
+                        niższe koszty stałe dla mieszkańca przy zastosowaniu {ventilation === 'mechanical' ? 'rekuperacji' : 'odpowiedniej technologii'} i ogrzewania podłogowego z systemem Panasonic Aquarea w porównaniu do {heatCostDistrictPerM2 > heatCostGasPerM2 ? 'sieci miejskiej' : 'kotłów gazowych'}.
+                      </p>
+                    </div>
+
+                    <div className="text-center p-6 border-t border-white/5">
+                      <p className="text-[10px] text-slate-500 uppercase font-black mb-2 italic">Założenia eksploatacyjne i ceny energii (Prognoza Warszawa 2025):</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                        <p className="text-[9px] text-slate-400 italic">Prąd: {priceKwhG11.toFixed(2)} zł/kWh (Brutto G11) | Gaz: 0.35 zł/kWh | Ciepło miejskie: 115 zł/GJ</p>
+                        <p className="text-[9px] text-slate-400 italic">Sprawność PC: SCOP 3.2 (Grzejniki) / 4.5 (Podłogówka) | EU budynku: {euYearlyPerM2.toFixed(0)} kWh/m²rok (Went. {ventilation === 'mechanical' ? 'Mech.' : 'Graw.'})</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+        
+        <footer className="mt-12 pt-8 border-t border-slate-200">
+          <div className="max-w-3xl mx-auto text-center">
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-[0.15em]">
+              Prezentowane wyliczenia mają charakter szacunkowy przy założeniu ceny sprzedaży PUM {pricePumM2} zł/m². Dokładny dobór wymaga pełnego projektu OZC. Systemy Panasonic Aquarea.
+            </p>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+export default App;
